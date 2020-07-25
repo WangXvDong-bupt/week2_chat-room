@@ -22,11 +22,12 @@ DWORD WINAPI CreateSendMegThread(LPVOID lpParameter)
     SOCKET s_send = (SOCKET)lpParameter;
     while (true)
     {
+        char meg_send[maxSize] = {};
         int send_len = 0;
         cout << endl << "请输入发送信息:";
-        string line;
-        getline(cin, line);
-        send_len = send(s_send, line.c_str(), maxSize, 0);
+        cin.getline(meg_send, maxSize);
+        cout << "in:" << meg_send << endl;
+        send_len = send(s_send, meg_send, maxSize, 0);
         if (send_len == SOCKET_ERROR) {
             cout << "发送失败！" << endl;
             continue;
