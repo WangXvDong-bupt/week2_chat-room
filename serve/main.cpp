@@ -15,37 +15,81 @@ using namespace std;
 #define maxSize 1024
 vector<SOCKET> sockets;
 
+typedef struct userInformition
+{
+    string username;
+    SOCKET user_socket;
+}node_user;
+//定义向量用于存储用户ID信息
+vector<node_user> user_sockets;
+
 
 DWORD WINAPI CreateClientThread(LPVOID lpParameter)
 {
     SOCKET sock_clt = (SOCKET)lpParameter;
-    sockets.push_back(sock_clt);
+    //sockets.push_back(sock_clt);
     char meg_recv[maxSize] = {};
     //定义长度变量
     int send_len = 0;
     int recv_len = 0;
     cout << "创建线程成功" << endl;
+    
+    int userID;
+    char username[maxSize] = {'\0'};                        //建立客户端用户ID数组
+    while (true)
+    {
+        recv_len = recv(sock_clt, username, maxSize, 0);    //接受用户名
+        cout << username << "用户已登录" << endl;
+        if (recv_len != SOCKET_ERROR)
+            break;
+    }
+
+    bool user_isExist;
+    if (!user_sockets.empty())                              //更新客户端用户信息
+    {
+        user_isExist = false;
+        for (auto c : user_sockets)
+        {
+            if (c.username == username)
+            {
+                user_isExist = true;
+                c.user_socket = sock_clt;
+                break;
+            }
+        }
+    }
+    else user_isExist = false;
+    if (!user_isExist)
+    {
+        node_user currentUser;
+        currentUser.username = username;
+        currentUser.user_socket = sock_clt;
+        user_sockets.push_back(currentUser);
+    }
+
     while (true)
     {
         recv_len = recv(sock_clt, meg_recv, maxSize, 0);
         cout << "接收消息：" << meg_recv << endl;
-        if (sockets.size() > 1)
+        string s_toUser = meg_recv;
+        if (user_sockets.size() > 1)
         {
-            if (sock_clt == sockets[0])
+            //cout << user_sockets[0].username << user_sockets[1].username << endl;
+            for (auto c : user_sockets)         //根据报文":"后指向的用户名查找要发送的用户的SOCKET
             {
-                send_len = send(sockets[1], meg_recv, sizeof(meg_recv), 0);
-                cout << "发送消息至客户端:" << sockets[1] << endl;
+                if (s_toUser.find(":" + c.username) == 0)      
+                {
+                    s_toUser.erase(0, c.username.size()+1);
+                    strcpy(meg_recv, s_toUser.c_str());
+                    send_len = send(c.user_socket, meg_recv, sizeof(meg_recv), 0);
+                    if (send_len < 0)
+                        cout << "发送失败" << endl;
+                    else 
+                        cout << "发送消息至客户端:" << c.user_socket << endl;
+                    break;
+                }
             }
-            if (sock_clt == sockets[1])
-            {
-                send_len = send(sockets[0], meg_recv, sizeof(meg_recv), 0);
-                cout << "发送消息至客户端:" << sockets[0] << endl;
-            }
-            if (send_len < 0)
-            {
-                cout << "发送失败" << endl;
-                break;
-            }
+            
         }
         else cout << "当前只有一个客户端" << endl;
         memset(meg_recv, 0, sizeof(meg_recv));      //清空数据缓冲区
@@ -113,7 +157,7 @@ int main()
         WSACleanup();
         return 0;
     }*/
-    cout << "连接建立，准备接受数据" << endl;
+    
     //接收数据
     while (true)
     {
@@ -124,6 +168,7 @@ int main()
             WSACleanup();
             return 0;
         }
+        else cout << "连接建立，准备接受数据" << endl;
         auto sock_thread = ::CreateThread(nullptr, 0, CreateClientThread, (LPVOID)socketAccept, 0, nullptr);
         if (sock_thread == NULL) {
             cerr << "创建线程失败! Error code: " << ::WSAGetLastError() << endl;
